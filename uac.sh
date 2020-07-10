@@ -4,7 +4,7 @@
 # For kernel v4.4 usb configfs
 #
 
-UAC=uac1
+UAC=uac2
 
 USB_ATTRIBUTE=0x409
 USB_GROUP=rockchip
@@ -64,11 +64,11 @@ config_init()
 	UAC_GS0=${USB_FUNCTIONS_DIR}/${UAC}.gs0
 	echo 3 > ${UAC_GS0}/p_chmask
 	echo 2 > ${UAC_GS0}/p_ssize
-	echo 48000 > ${UAC_GS0}/p_srate
+	echo 8000,16000,44100,48000 > ${UAC_GS0}/p_srate
 
 	echo 3 > ${UAC_GS0}/c_chmask
 	echo 2 > ${UAC_GS0}/p_ssize
-	echo 48000 > ${UAC_GS0}/c_srate
+	echo 8000,16000,44100,48000 > ${UAC_GS0}/c_srate
 }
 
 syslink_function()

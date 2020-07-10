@@ -39,6 +39,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/prctl.h>
+#include <stdlib.h>
+
 
 #include <linux/netlink.h>
 #include <sys/socket.h>
@@ -89,11 +91,24 @@
  * strs[3] = USB_STATE=SET_INTERFACE
  * strs[4] = STREAM_DIRECTION=IN
  * strs[5] = STREAM_STATE=OFF
+ *
+ *
+ * case 5:
+ * the UAC1 uevent
+ *
+ * strs[0] = ACTION=change
+ * strs[1] = DEVPATH=/devices/virtual/u_audio/UAC1_Gadget 0
+ * strs[2] = SUBSYSTEM=u_audio
+ * strs[3] = USB_STATE=SET_SAMPLE_RATE
+ * strs[4] = STREAM_DIRECTION=IN
+ * strs[5] = SAMPLE_RATE=48000
  */
-#define UAC_UEVENT_AUDIO      "SUBSYSTEM=u_audio"
-#define UAC_UEVENT_USB_STATE  "USB_STATE=SET_INTERFACE"
-#define UAC_STREAM_DIRECT     "STREAM_DIRECTION="
-#define UAC_STREAM_STATE      "STREAM_STATE="
+#define UAC_UEVENT_AUDIO            "SUBSYSTEM=u_audio"
+#define UAC_UEVENT_SET_INTERFACE    "USB_STATE=SET_INTERFACE"
+#define UAC_UEVENT_SET_SAMPLE_RATE  "USB_STATE=SET_SAMPLE_RATE"
+#define UAC_STREAM_DIRECT           "STREAM_DIRECTION="
+#define UAC_STREAM_STATE            "STREAM_STATE="
+#define UAC_SAMPLE_RATE             "SAMPLE_RATE="
 
 // remote device/pc->our device
 #define UAC_REMOTE_PLAY     "OUT"
@@ -111,7 +126,8 @@ enum UAC_UEVENT_KEY {
     UAC_KEY_AUDIO = 2,
     UAC_KEY_USB_STATE = 3,
     UAC_KEY_DIRECTION = 4,
-    UAC_KEY_STREAM_STATE = 5
+    UAC_KEY_STREAM_STATE = 5,
+    UAC_KEY_SAMPLE_RATE = UAC_KEY_STREAM_STATE,
 };
 
 
@@ -126,40 +142,79 @@ bool compare(const char* dst, const char* srt) {
     return false;
 }
 
-void audio_event(const struct _uevent *uevent) {
-    char *event = uevent->strs[UAC_KEY_USB_STATE];
+void audio_play(const struct _uevent *uevent) {
     char *direct = uevent->strs[UAC_KEY_DIRECTION];
     char *status = uevent->strs[UAC_KEY_STREAM_STATE];
-    if ((event == NULL) || (direct == NULL) || (status == NULL))
-        return;
 
-    if (!compare(event, UAC_UEVENT_USB_STATE))
-        return;
-
-    if (compare(direct, UAC_STREAM_DIRECT) && compare(status, UAC_STREAM_STATE) ) {
+    if (compare(direct, UAC_STREAM_DIRECT) && compare(status, UAC_STREAM_STATE)) {
         char* device = &direct[strlen(UAC_STREAM_DIRECT)];
-        char* streamOn = &status[strlen(UAC_STREAM_STATE)];
+        char* state  = &status[strlen(UAC_STREAM_STATE)];
         // remote device/pc open/close usb sound card to write data
         if (compare(device, UAC_REMOTE_PLAY)) {
-            if (compare(UAC_STREAM_START, streamOn)) {
+            if (compare(UAC_STREAM_START, state)) {
                 // stream start, we need to open usb card to record datas
-                printf("remote device/pc start to write to us, we need to open usb to record datas\n");
+                printf("remote device/pc start to play data to us, we need to open usb to capture datas\n");
                 uac_start(UAC_STREAM_RECORD);
-            } else if (compare(UAC_STREAM_STOP, streamOn)) {
-                printf("remote device/pc stop to write to us, we need to stop record datas from usb\n");
+            } else if (compare(UAC_STREAM_STOP, state)) {
+                printf("remote device/pc stop to play data to us, we need to stop capture datas\n");
                 uac_stop(UAC_STREAM_RECORD);
             }
         } else if (compare(device, UAC_REMOTE_CAPTURE)) {
             // our device->remote device/pc
-            if (compare(UAC_STREAM_START, streamOn)) {
+            if (compare(UAC_STREAM_START, state)) {
                 // stream start, we need to open usb card to record datas
                 printf("remote device/pc start to record from us, we need to open usb to send datas\n");
                 uac_start(UAC_STREAM_PLAYBACK);
-            } else if (compare(UAC_STREAM_STOP, streamOn)) {
+            } else if (compare(UAC_STREAM_STOP, state)) {
                 printf("remote device/pc stop to record from us, we need to stop write datas to usb\n");
                 uac_stop(UAC_STREAM_PLAYBACK);
             }
         }
+    }
+}
+
+void audio_set_samplerate(const struct _uevent *uevent) {
+    char *direct = uevent->strs[UAC_KEY_DIRECTION];
+    char *samplerate = uevent->strs[UAC_KEY_SAMPLE_RATE];
+    printf("%s: %s\n", __FUNCTION__, direct);
+    printf("%s: %s\n", __FUNCTION__, samplerate);
+    if (compare(direct, UAC_STREAM_DIRECT)) {
+        char* device = &direct[strlen(UAC_STREAM_DIRECT)];
+        char* rate  = &samplerate[strlen(UAC_SAMPLE_RATE)];
+        if (compare(device, UAC_REMOTE_PLAY)) {
+            printf("we will use this samplerate to record from usb soundcard\n");
+            uac_set_sample_rate(UAC_STREAM_RECORD, atoi(rate));
+        } else if (compare(device, UAC_REMOTE_CAPTURE)) {
+            printf("we will use this samplerate to playback data to remote device/pc\n");
+            uac_set_sample_rate(UAC_STREAM_PLAYBACK, atoi(rate));
+        }
+    }
+}
+
+
+void audio_event(const struct _uevent *uevent) {
+    char *event = uevent->strs[UAC_KEY_USB_STATE];
+    char *direct = uevent->strs[UAC_KEY_DIRECTION];
+    char *status = uevent->strs[UAC_KEY_STREAM_STATE];
+    printf("event = %s\n", event);
+    printf("direct = %s\n", direct);
+    printf("status = %s\n", status);
+    if ((event == NULL) || (direct == NULL) || (status == NULL)) {
+        printf("%s:%d return\n", __FUNCTION__, __LINE__);
+        return;
+    }
+
+    bool setInterface = compare(event, UAC_UEVENT_SET_INTERFACE);
+    bool setSampleRate = compare(event, UAC_UEVENT_SET_SAMPLE_RATE);
+    if (!setInterface && !setSampleRate) {
+        printf("%s:%d return\n", __FUNCTION__, __LINE__);
+        return;
+    }
+
+    if (setInterface) {
+        audio_play(uevent);
+    } else if(setSampleRate) {
+        audio_set_samplerate(uevent);
     }
 }
 
@@ -170,7 +225,7 @@ static void parse_event(const struct _uevent *event) {
 
 #if 0
     for (int i = 0 ; i < 10; i++) {
-        if (event->strs[i] != RT_NULL) {
+        if (event->strs[i] != NULL) {
             printf("strs[%d] = %s\n", i, event->strs[i]);
         }
     }

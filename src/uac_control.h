@@ -25,6 +25,7 @@ enum UACStreamType {
 
 int uac_start(int type);
 void uac_stop(int type);
+void uac_set_sample_rate(int type, int samplerate);
 
 int uac_control_create();
 void uac_control_destory();
