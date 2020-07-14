@@ -86,6 +86,9 @@ typedef struct _UACControl {
 
 UACControl *gUAControl = NULL;
 
+extern void uac_set_sample_rate(int type, int samplerate);
+extern int setAudioConfig(RTUACGraph* uac, int type, int sampleRate, int channels);
+
 int uac_control_create() {
     gUAControl = (UACControl*)calloc(1, sizeof(UACControl));
     if (!gUAControl) {
@@ -135,6 +138,13 @@ void uac_set_sample_rate(int type, int samplerate) {
         __FUNCTION__, __LINE__, type, samplerate);
     pthread_mutex_lock(&gUAControl->stream[type].mutex);
     gUAControl->stream[type].config.samplerate = samplerate;
+    /*
+     * if uac is already start, set samplerate
+     */
+    RTUACGraph* uac = gUAControl->stream[type].uac;
+    if (uac != NULL) {
+        setAudioConfig(uac, type, gUAControl->stream[type].config.samplerate, 0);
+    }
     pthread_mutex_unlock(&gUAControl->stream[type].mutex);
 }
 
