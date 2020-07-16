@@ -148,7 +148,6 @@ void uac_set_sample_rate(int type, int samplerate) {
     pthread_mutex_unlock(&gUAControl->stream[type].mutex);
 }
 
-
 /*
  * see json file
  */
@@ -173,6 +172,9 @@ int setAudioConfig(RTUACGraph* uac, int type, int sampleRate, int channels) {
      *    we set audio config to this resample, the new config will
      *    pass to usb playback from resample to usb playback when
      *    the datas move from resample to usb.
+     * 3. we alway use samperate=48K to open mic and speaker,
+     *    because usually, they use the same group i2s, and
+     *    not allowned to use diffrent samplerate.
      */
     if (type == UAC_STREAM_RECORD) {
         // the usb record always the first node
