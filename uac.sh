@@ -65,10 +65,12 @@ config_init()
 	echo 3 > ${UAC_GS0}/p_chmask
 	echo 2 > ${UAC_GS0}/p_ssize
 	echo 8000,16000,44100,48000 > ${UAC_GS0}/p_srate
+        echo 1 > ${UAC_GS0}/p_feature_unit
 
 	echo 3 > ${UAC_GS0}/c_chmask
-	echo 2 > ${UAC_GS0}/p_ssize
+	echo 2 > ${UAC_GS0}/c_ssize
 	echo 8000,16000,44100,48000 > ${UAC_GS0}/c_srate
+	echo 1 > ${UAC_GS0}/c_feature_unit
 }
 
 syslink_function()

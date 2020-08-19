@@ -62,15 +62,10 @@
  */
 #define UAC_FILE_READ_USB_PLAY_CONFIG_FILE "/oem/usr/share/uac_app/file_read_usb_playback.json"
 
-#define OPT_SAMPLE_RATE "opt_samaple_rate"
-#define OPT_CHANNELS "opt_channel"
-
-#define OPT_SET_ALSA_CAPTURE "set_capture_config"
-#define OPT_SET_RESAMPLE     "set_resample_config"
-
-
 typedef struct _UACAudioConfig {
     int samplerate;
+    float volume;
+    int mute;
   //  int channels; // not support
 } UACAudioConfig;
 
@@ -84,10 +79,17 @@ typedef struct _UACControl {
     UACStream     stream[UAC_STREAM_MAX];
 } UACControl;
 
+typedef enum UACConfigCmd {
+    UAC_SET_SAMPLE_RATE = 1,
+    UAC_SET_VOLUME,
+} UACConfigCmd;
+
 UACControl *gUAControl = NULL;
 
 extern void uac_set_sample_rate(int type, int samplerate);
-extern int setAudioConfig(RTUACGraph* uac, int type, int sampleRate, int channels);
+extern void uac_set_volume(int type, int volume);
+extern void uac_set_mute(int type, int  mute);
+extern int  uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig config, UACConfigCmd cmd);
 
 int uac_control_create() {
     gUAControl = (UACControl*)calloc(1, sizeof(UACControl));
@@ -105,8 +107,9 @@ int uac_control_create() {
         } else {
             gUAControl->stream[i].config.samplerate = 48000;
         }
-        // not support yet
-        // gUAControl->stream[i].config.channels = 2;
+
+        gUAControl->stream[i].config.volume = 1.0;
+        gUAControl->stream[i].config.mute = 0;
     }
 
     return 0;
@@ -143,7 +146,49 @@ void uac_set_sample_rate(int type, int samplerate) {
      */
     RTUACGraph* uac = gUAControl->stream[type].uac;
     if (uac != NULL) {
-        setAudioConfig(uac, type, gUAControl->stream[type].config.samplerate, 0);
+        uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_SAMPLE_RATE);
+    }
+    pthread_mutex_unlock(&gUAControl->stream[type].mutex);
+}
+
+void uac_set_volume(int type, int volume) {
+    if (gUAControl == NULL)
+        return;
+
+    if ((type < 0) || (type >= UAC_STREAM_MAX))
+        return;
+
+    pthread_mutex_lock(&gUAControl->stream[type].mutex);
+    gUAControl->stream[type].config.volume = ((float)volume/100.0);
+    printf("%s:%d, type = %d, volume = %f\n",
+        __FUNCTION__, __LINE__, type, gUAControl->stream[type].config.volume);
+    /*
+     * if uac is already start, set volume to RTUACGraph
+     */
+    RTUACGraph* uac = gUAControl->stream[type].uac;
+    if (uac != NULL) {
+        uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_VOLUME);
+    }
+    pthread_mutex_unlock(&gUAControl->stream[type].mutex);
+}
+
+void uac_set_mute(int type, int mute) {
+    if (gUAControl == NULL)
+        return;
+
+    if ((type < 0) || (type >= UAC_STREAM_MAX))
+        return;
+
+    printf("%s:%d, type = %d, mute = %d\n",
+        __FUNCTION__, __LINE__, type, mute);
+    pthread_mutex_lock(&gUAControl->stream[type].mutex);
+    gUAControl->stream[type].config.mute = mute;
+    /*
+     * if uac is already start, set mute to RTUACGraph
+     */
+    RTUACGraph* uac = gUAControl->stream[type].uac;
+    if (uac != NULL) {
+        uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_VOLUME);
     }
     pthread_mutex_unlock(&gUAControl->stream[type].mutex);
 }
@@ -151,44 +196,23 @@ void uac_set_sample_rate(int type, int samplerate) {
 /*
  * see json file
  */
-int setAudioConfig(RTUACGraph* uac, int type, int sampleRate, int channels) {
+int uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig config, UACConfigCmd cmd) {
     if (uac == RT_NULL)
         return -1;
 
-    if (sampleRate == 0 && channels == 0)
-        return -1;
-
-    RtMetaData     *meta = new RtMetaData();
-
-    meta->setInt32(kKeyTaskNodeId, 2);
-    if (sampleRate != 0) {
-        meta->setInt32(OPT_SAMPLE_RATE, sampleRate);
-        printf("%s: sampleRate = %d\n", __FUNCTION__, sampleRate);
+    switch (cmd) {
+      case UAC_SET_SAMPLE_RATE: {
+            graph_set_samplerate(uac, type, config.samplerate);
+        } break;
+      case UAC_SET_VOLUME: {
+            int mute = (config.mute)?1:0;
+            graph_set_volume(uac, type, mute, config.volume);
+        } break;
+      default:
+        printf("cannot find UACConfigCmd = %d.\n", cmd);
+        break;
     }
 
-    /*
-     * 1. for usb capture, we update audio config to capture
-     * 2. for usb playback, if there is resample before usb playback,
-     *    we set audio config to this resample, the new config will
-     *    pass to usb playback from resample to usb playback when
-     *    the datas move from resample to usb.
-     * 3. we alway use samperate=48K to open mic and speaker,
-     *    because usually, they use the same group i2s, and
-     *    not allowned to use diffrent samplerate.
-     */
-    if (type == UAC_STREAM_RECORD) {
-        // the usb record always the first node
-        meta->setInt32(kKeyTaskNodeId, 0);
-        meta->setCString(kKeyPipeInvokeCmd, OPT_SET_ALSA_CAPTURE);
-    } else {
-        // find the resample before usb playback, see mic_recode_usb_playback.json
-        meta->setInt32(kKeyTaskNodeId, 1);
-        meta->setCString(kKeyPipeInvokeCmd, OPT_SET_RESAMPLE);
-    }
-
-    uac->invoke(GRAPH_CMD_TASK_NODE_PRIVATE_CMD, meta);
-
-    delete meta;
     return 0;
 }
 
@@ -216,9 +240,11 @@ int uac_start(int type) {
     }
     // default configs will be readed in json file
     uac->autoBuild(config);
-    // change resample if need
-    setAudioConfig(uac, type, gUAControl->stream[type].config.samplerate, 0);
     uac->prepare();
+
+    uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_VOLUME);
+    uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_SAMPLE_RATE);
+
     uac->start();
 
     pthread_mutex_lock(&gUAControl->stream[type].mutex);
