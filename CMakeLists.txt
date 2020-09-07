@@ -18,7 +18,14 @@ set(SOURCE
 set(UAC_APP_DEPENDENT_LIBS
     pthread
     rockit
- )
+)
+
+set(UAC_AUDIO_ALGORITHM
+    ${CMAKE_CURRENT_LIST_DIR}/libs/libaec_wake_float.so
+    ${CMAKE_CURRENT_LIST_DIR}/libs/libbeamform.so
+    ${CMAKE_CURRENT_LIST_DIR}/libs/libagc.so
+    ${CMAKE_CURRENT_LIST_DIR}/libs/libanr.so)
+install(FILES ${UAC_AUDIO_ALGORITHM} DESTINATION lib)
 
 ADD_EXECUTABLE(uac_app ${SOURCE})
 target_link_libraries(uac_app ${UAC_APP_DEPENDENT_LIBS})
