@@ -106,9 +106,16 @@
 #define UAC_UEVENT_AUDIO            "SUBSYSTEM=u_audio"
 #define UAC_UEVENT_SET_INTERFACE    "USB_STATE=SET_INTERFACE"
 #define UAC_UEVENT_SET_SAMPLE_RATE  "USB_STATE=SET_SAMPLE_RATE"
+#define UAC_UEVENT_SET_VOLUME       "USB_STATE=SET_VOLUME"
+#define UAC_UEVENT_SET_MUTE         "USB_STATE=SET_MUTE"
+
+
 #define UAC_STREAM_DIRECT           "STREAM_DIRECTION="
 #define UAC_STREAM_STATE            "STREAM_STATE="
 #define UAC_SAMPLE_RATE             "SAMPLE_RATE="
+#define UAC_SET_VOLUME              "VOLUME="
+#define UAC_SET_MUTE                "MUTE="
+
 
 // remote device/pc->our device
 #define UAC_REMOTE_PLAY     "OUT"
@@ -128,6 +135,8 @@ enum UAC_UEVENT_KEY {
     UAC_KEY_DIRECTION = 4,
     UAC_KEY_STREAM_STATE = 5,
     UAC_KEY_SAMPLE_RATE = UAC_KEY_STREAM_STATE,
+    UAC_KEY_VOLUME      = UAC_KEY_STREAM_STATE,
+    UAC_KEY_MUTE        = UAC_KEY_STREAM_STATE,
 };
 
 
@@ -181,16 +190,71 @@ void audio_set_samplerate(const struct _uevent *uevent) {
     if (compare(direct, UAC_STREAM_DIRECT)) {
         char* device = &direct[strlen(UAC_STREAM_DIRECT)];
         char* rate  = &samplerate[strlen(UAC_SAMPLE_RATE)];
+        int sampleRate = atoi(rate);
         if (compare(device, UAC_REMOTE_PLAY)) {
-            printf("we will use this samplerate to record from usb soundcard\n");
-            uac_set_sample_rate(UAC_STREAM_RECORD, atoi(rate));
+            printf("set samplerate %d to usb record\n", sampleRate);
+            uac_set_sample_rate(UAC_STREAM_RECORD, sampleRate);
         } else if (compare(device, UAC_REMOTE_CAPTURE)) {
-            printf("we will use this samplerate to playback data to remote device/pc\n");
-            uac_set_sample_rate(UAC_STREAM_PLAYBACK, atoi(rate));
+            printf("set samplerate %d to usb playback\n", sampleRate);
+            uac_set_sample_rate(UAC_STREAM_PLAYBACK, sampleRate);
         }
     }
 }
 
+
+/*
+ * strs[0] = ACTION=change
+ * strs[1] = DEVPATH=/devicges/virtual/u_audio/UAC1_Gadgeta 0
+ * strs[2] = SUBSYSTEM=u_audio
+ * strs[3] = USB_STATE=SET_VOLUME
+ * strs[4] = STREAM_DIRECTION=OUT
+ * strs[5] = VOLUME=72%
+ */
+void audio_set_volume(const struct _uevent *uevent) {
+    char *direct = uevent->strs[UAC_KEY_DIRECTION];
+    char *volumeStr = uevent->strs[UAC_KEY_VOLUME];
+    printf("%s: direct = %s volume = %s\n", __FUNCTION__, direct, volumeStr);
+
+    if (compare(direct, UAC_STREAM_DIRECT)) {
+        char* device = &direct[strlen(UAC_STREAM_DIRECT)];
+        int volume = 100;
+        sscanf(volumeStr, "VOLUME=%d", &volume);
+        if (compare(device, UAC_REMOTE_PLAY)) {
+            printf("set volume %d to usb record\n", volume);
+            uac_set_volume(UAC_STREAM_RECORD, volume);
+        } else if (compare(device, UAC_REMOTE_CAPTURE)) {
+            printf("set volume %d to usb playback\n", volume);
+            uac_set_volume(UAC_STREAM_PLAYBACK, volume);
+        }
+    }
+}
+
+/*
+ * strs[0] = ACTION=change
+ * strs[1] = DEVPATH=/devices/virtual/u_audio/UAC1_Gadget 0
+ * strs[2] = SUBSYSTEM=u_audio
+ * strs[3] = USB_STATE=SET_MUTE
+ * strs[4] = STREAM_DIRECTION=OUT
+ * strs[5] = MUTE=1
+*/
+void audio_set_mute(const struct _uevent *uevent) {
+    char *direct = uevent->strs[UAC_KEY_DIRECTION];
+    char *muteStr = uevent->strs[UAC_KEY_MUTE];
+    printf("%s: direct = %s mute = %s\n", __FUNCTION__, direct, muteStr);
+
+    if (compare(direct, UAC_STREAM_DIRECT)) {
+        char* device = &direct[strlen(UAC_STREAM_DIRECT)];
+        int mute = 0;
+        sscanf(muteStr, "MUTE=%d", &mute);
+        if (compare(device, UAC_REMOTE_PLAY)) {
+            printf("set mute = %d to usb record\n", mute);
+            uac_set_mute(UAC_STREAM_RECORD, mute);
+        } else if (compare(device, UAC_REMOTE_CAPTURE)) {
+            printf("set mute = %d to usb playback\n", mute);
+            uac_set_mute(UAC_STREAM_PLAYBACK, mute);
+        }
+    }
+}
 
 void audio_event(const struct _uevent *uevent) {
     char *event = uevent->strs[UAC_KEY_USB_STATE];
@@ -206,7 +270,9 @@ void audio_event(const struct _uevent *uevent) {
 
     bool setInterface = compare(event, UAC_UEVENT_SET_INTERFACE);
     bool setSampleRate = compare(event, UAC_UEVENT_SET_SAMPLE_RATE);
-    if (!setInterface && !setSampleRate) {
+    bool setVolume = compare(event, UAC_UEVENT_SET_VOLUME);
+    bool setMute = compare(event, UAC_UEVENT_SET_MUTE);
+    if (!setInterface && !setSampleRate && !setVolume && !setMute) {
         printf("%s:%d return\n", __FUNCTION__, __LINE__);
         return;
     }
@@ -215,9 +281,12 @@ void audio_event(const struct _uevent *uevent) {
         audio_play(uevent);
     } else if(setSampleRate) {
         audio_set_samplerate(uevent);
+    } else if(setVolume) {
+        audio_set_volume(uevent);
+    } else if(setMute) {
+        audio_set_mute(uevent);
     }
 }
-
 
 static void parse_event(const struct _uevent *event) {
     if (event->size <= 0)
@@ -235,7 +304,6 @@ static void parse_event(const struct _uevent *event) {
         audio_event(event);
     }
 }
-
 
 static void *event_monitor_thread(void *arg)
 {

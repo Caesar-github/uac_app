@@ -14,18 +14,19 @@
  * limitations under the License.
  *
  */
+#ifndef _ROCKIT_UAC_CONTROL_H_
+#define _ROCKIT_UAC_CONTROL_H_
 
-enum UACStreamType {
-    // our device record datas from usb, pc/remote->our device
-    UAC_STREAM_RECORD = 0,
-    // play datas to usb, our device->pc/remote
-    UAC_STREAM_PLAYBACK,
-    UAC_STREAM_MAX
-};
+
+#include "graph_control.h"
 
 int uac_start(int type);
 void uac_stop(int type);
 void uac_set_sample_rate(int type, int samplerate);
+void uac_set_volume(int type, int volume);
+void uac_set_mute(int type, int mute);
 
 int uac_control_create();
 void uac_control_destory();
+
+#endif  // _ROCKIT_UAC_CONTROL_H_

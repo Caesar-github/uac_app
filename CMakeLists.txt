@@ -4,6 +4,7 @@ add_definitions(-fno-rtti)
 PROJECT(uac_app)
 
 set(LIB_SOURCE
+    src/graph_control.cpp
     src/uac_control.cpp
     src/uevent.cpp
 )
