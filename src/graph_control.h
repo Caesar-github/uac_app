@@ -33,7 +33,13 @@ enum UACStreamType {
     UAC_STREAM_MAX
 };
 
-void graph_set_samplerate(RTUACGraph* uac, int type, int sampleRate);
-void graph_set_volume(RTUACGraph* uac, int type, int mute, float volume);
+typedef struct _UACAudioConfig {
+    int samplerate;
+    float volume;
+    int mute;
+} UACAudioConfig;
+
+void graph_set_samplerate(RTUACGraph* uac, int type, UACAudioConfig& config);
+void graph_set_volume(RTUACGraph* uac, int type, UACAudioConfig& config);
 
 #endif  // _ROCKIT_GRAPH_CONTROL_H_

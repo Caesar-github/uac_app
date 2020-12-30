@@ -47,6 +47,12 @@
 #include <sys/time.h>
 #include "uevent.h"
 #include "uac_control.h"
+#include "uac_log.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#define LOG_TAG "audio_event"
+#endif // LOG_TAG
 
 /*
  * case 1:
@@ -162,20 +168,20 @@ void audio_play(const struct _uevent *uevent) {
         if (compare(device, UAC_REMOTE_PLAY)) {
             if (compare(UAC_STREAM_START, state)) {
                 // stream start, we need to open usb card to record datas
-                printf("remote device/pc start to play data to us, we need to open usb to capture datas\n");
+                ALOGD("remote device/pc start to play data to us, we need to open usb to capture datas\n");
                 uac_start(UAC_STREAM_RECORD);
             } else if (compare(UAC_STREAM_STOP, state)) {
-                printf("remote device/pc stop to play data to us, we need to stop capture datas\n");
+                ALOGD("remote device/pc stop to play data to us, we need to stop capture datas\n");
                 uac_stop(UAC_STREAM_RECORD);
             }
         } else if (compare(device, UAC_REMOTE_CAPTURE)) {
             // our device->remote device/pc
             if (compare(UAC_STREAM_START, state)) {
                 // stream start, we need to open usb card to record datas
-                printf("remote device/pc start to record from us, we need to open usb to send datas\n");
+                ALOGD("remote device/pc start to record from us, we need to open usb to send datas\n");
                 uac_start(UAC_STREAM_PLAYBACK);
             } else if (compare(UAC_STREAM_STOP, state)) {
-                printf("remote device/pc stop to record from us, we need to stop write datas to usb\n");
+                ALOGD("remote device/pc stop to record from us, we need to stop write datas to usb\n");
                 uac_stop(UAC_STREAM_PLAYBACK);
             }
         }
@@ -185,17 +191,17 @@ void audio_play(const struct _uevent *uevent) {
 void audio_set_samplerate(const struct _uevent *uevent) {
     char *direct = uevent->strs[UAC_KEY_DIRECTION];
     char *samplerate = uevent->strs[UAC_KEY_SAMPLE_RATE];
-    printf("%s: %s\n", __FUNCTION__, direct);
-    printf("%s: %s\n", __FUNCTION__, samplerate);
+    ALOGD("%s: %s\n", __FUNCTION__, direct);
+    ALOGD("%s: %s\n", __FUNCTION__, samplerate);
     if (compare(direct, UAC_STREAM_DIRECT)) {
         char* device = &direct[strlen(UAC_STREAM_DIRECT)];
         char* rate  = &samplerate[strlen(UAC_SAMPLE_RATE)];
         int sampleRate = atoi(rate);
         if (compare(device, UAC_REMOTE_PLAY)) {
-            printf("set samplerate %d to usb record\n", sampleRate);
+            ALOGD("set samplerate %d to usb record\n", sampleRate);
             uac_set_sample_rate(UAC_STREAM_RECORD, sampleRate);
         } else if (compare(device, UAC_REMOTE_CAPTURE)) {
-            printf("set samplerate %d to usb playback\n", sampleRate);
+            ALOGD("set samplerate %d to usb playback\n", sampleRate);
             uac_set_sample_rate(UAC_STREAM_PLAYBACK, sampleRate);
         }
     }
@@ -213,17 +219,17 @@ void audio_set_samplerate(const struct _uevent *uevent) {
 void audio_set_volume(const struct _uevent *uevent) {
     char *direct = uevent->strs[UAC_KEY_DIRECTION];
     char *volumeStr = uevent->strs[UAC_KEY_VOLUME];
-    printf("%s: direct = %s volume = %s\n", __FUNCTION__, direct, volumeStr);
+    ALOGD("direct = %s volume = %s\n", direct, volumeStr);
 
     if (compare(direct, UAC_STREAM_DIRECT)) {
         char* device = &direct[strlen(UAC_STREAM_DIRECT)];
         int volume = 100;
         sscanf(volumeStr, "VOLUME=%d", &volume);
         if (compare(device, UAC_REMOTE_PLAY)) {
-            printf("set volume %d to usb record\n", volume);
+            ALOGD("set volume %d to usb record\n", volume);
             uac_set_volume(UAC_STREAM_RECORD, volume);
         } else if (compare(device, UAC_REMOTE_CAPTURE)) {
-            printf("set volume %d to usb playback\n", volume);
+            ALOGD("set volume %d to usb playback\n", volume);
             uac_set_volume(UAC_STREAM_PLAYBACK, volume);
         }
     }
@@ -240,17 +246,17 @@ void audio_set_volume(const struct _uevent *uevent) {
 void audio_set_mute(const struct _uevent *uevent) {
     char *direct = uevent->strs[UAC_KEY_DIRECTION];
     char *muteStr = uevent->strs[UAC_KEY_MUTE];
-    printf("%s: direct = %s mute = %s\n", __FUNCTION__, direct, muteStr);
+    ALOGD("direct = %s mute = %s\n", direct, muteStr);
 
     if (compare(direct, UAC_STREAM_DIRECT)) {
         char* device = &direct[strlen(UAC_STREAM_DIRECT)];
         int mute = 0;
         sscanf(muteStr, "MUTE=%d", &mute);
         if (compare(device, UAC_REMOTE_PLAY)) {
-            printf("set mute = %d to usb record\n", mute);
+            ALOGD("set mute = %d to usb record\n", mute);
             uac_set_mute(UAC_STREAM_RECORD, mute);
         } else if (compare(device, UAC_REMOTE_CAPTURE)) {
-            printf("set mute = %d to usb playback\n", mute);
+            ALOGD("set mute = %d to usb playback\n", mute);
             uac_set_mute(UAC_STREAM_PLAYBACK, mute);
         }
     }
@@ -260,11 +266,10 @@ void audio_event(const struct _uevent *uevent) {
     char *event = uevent->strs[UAC_KEY_USB_STATE];
     char *direct = uevent->strs[UAC_KEY_DIRECTION];
     char *status = uevent->strs[UAC_KEY_STREAM_STATE];
-    printf("event = %s\n", event);
-    printf("direct = %s\n", direct);
-    printf("status = %s\n", status);
+    ALOGD("event = %s\n", event);
+    ALOGD("direct = %s\n", direct);
+    ALOGD("status = %s\n", status);
     if ((event == NULL) || (direct == NULL) || (status == NULL)) {
-        printf("%s:%d return\n", __FUNCTION__, __LINE__);
         return;
     }
 
@@ -273,7 +278,6 @@ void audio_event(const struct _uevent *uevent) {
     bool setVolume = compare(event, UAC_UEVENT_SET_VOLUME);
     bool setMute = compare(event, UAC_UEVENT_SET_MUTE);
     if (!setInterface && !setSampleRate && !setVolume && !setMute) {
-        printf("%s:%d return\n", __FUNCTION__, __LINE__);
         return;
     }
 
@@ -295,7 +299,7 @@ static void parse_event(const struct _uevent *event) {
 #if 0
     for (int i = 0 ; i < 10; i++) {
         if (event->strs[i] != NULL) {
-            printf("strs[%d] = %s\n", i, event->strs[i]);
+            ALOGD("strs[%d] = %s\n", i, event->strs[i]);
         }
     }
 #endif
@@ -332,12 +336,12 @@ static void *event_monitor_thread(void *arg)
 
     sockfd = socket(AF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
     if (sockfd == -1) {
-        printf("socket creating failed:%s\n", strerror(errno));
+        ALOGE("socket creating failed:%s\n", strerror(errno));
         goto err_event_monitor;
     }
 
     if (bind(sockfd, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
-        printf("bind error:%s\n", strerror(errno));
+        ALOGE("bind error:%s\n", strerror(errno));
         goto err_event_monitor;
     }
 
@@ -345,9 +349,9 @@ static void *event_monitor_thread(void *arg)
         event.size = 0;
         len = recvmsg(sockfd, &msg, 0);
         if (len < 0) {
-            printf("receive error\n");
+            ALOGD("receive error\n");
         } else if (len < 32 || len > sizeof(buf)) {
-            printf("invalid message");
+            ALOGD("invalid message");
         } else {
             for (i = 0, j = 0; i < len; i++) {
                 if (*(buf + i) == '\0' && (i + 1) != len) {

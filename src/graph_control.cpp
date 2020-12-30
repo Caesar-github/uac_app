@@ -16,24 +16,36 @@
  */
 
 #include "graph_control.h"
+#include "uac_log.h"
 
 #define OPT_SAMPLE_RATE "opt_samaple_rate"
 #define OPT_CHANNELS    "opt_channel"
 #define OPT_VOLUME      "opt_volume"
 #define OPT_MUTE        "opt_mute"
-
+#define OPT_CONFIGS     "opt_configs"
 
 #define OPT_SET_ALSA_CAPTURE "set_capture_config"
 #define OPT_SET_RESAMPLE     "set_resample_config"
 #define OPT_SET_VOLUME       "set_volume_config"
+#define OPT_SET_CONFIG       "set_config"
 
-void graph_set_samplerate(RTUACGraph* uac, int type, int sampleRate) {
-    if (uac == NULL || sampleRate == 0)
+#ifdef LOG_TAG
+#undef LOG_TAG
+#define LOG_TAG "graph"
+#endif // LOG_TAG
+
+
+void graph_set_samplerate(RTUACGraph* uac, int type, UACAudioConfig& config) {
+    if (uac == NULL)
+        return;
+
+    int sampleRate = config.samplerate;
+    if (sampleRate == 0)
         return;
 
     RtMetaData meta;
     meta.setInt32(OPT_SAMPLE_RATE, sampleRate);
-    printf("%s: type = %d, sampleRate = %d\n", __FUNCTION__, type, sampleRate);
+    ALOGD("%s: type = %d, sampleRate = %d\n", __FUNCTION__, type, sampleRate);
     /*
      * 1. for usb capture, we update audio config to capture
      * 2. for usb playback, if there is resample before usb playback,
@@ -57,12 +69,14 @@ void graph_set_samplerate(RTUACGraph* uac, int type, int sampleRate) {
     uac->invoke(GRAPH_CMD_TASK_NODE_PRIVATE_CMD, &meta);
 }
 
-void graph_set_volume(RTUACGraph* uac, int type, int mute, float volume) {
+void graph_set_volume(RTUACGraph* uac, int type, UACAudioConfig& config) {
     if (uac == NULL)
         return;
 
     RtMetaData meta;
-    printf("%s: type = %d, mute = %d, volume = %f\n", __FUNCTION__, type, mute, volume);
+    int mute = config.mute;
+    float volume = config.volume;
+    ALOGD("type = %d, mute = %d, volume = %f\n", type, mute, volume);
     if (type == UAC_STREAM_RECORD) {
        /*
         * for usb capture, we update audio volume config to capture,

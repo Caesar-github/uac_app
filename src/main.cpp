@@ -21,14 +21,25 @@
 
 #include "uevent.h"
 #include "uac_control.h"
+#include "uac_log.h"
+
+int enable_minilog    = 0;
+int uac_app_log_level = LOG_LEVEL_DEBUG;
+void debug_level_init() {
+    char *log_level = getenv("uac_app_log_level");
+    if (log_level) {
+        uac_app_log_level = atoi(log_level);
+    }
+}
 
 int main(int argc, char *argv[])
 {
-    printf("uac uevent version = 1.0\n");
+    debug_level_init();
+    ALOGI("uac uevent version = 1.0\n");
     // create uac control
     int result = uac_control_create();
     if (result < 0) {
-        printf("%s:%d error\n", __FUNCTION__, __LINE__);
+        ALOGE("uac_control_create error\n");
         return 0;
     }
 

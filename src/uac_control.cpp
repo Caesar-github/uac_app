@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+#include "uac_log.h"
 #include "uac_control.h"
 #include <rockit/rt_header.h>
 #include <rockit/rt_metadata.h>
@@ -43,6 +44,11 @@
 #include <rockit/RTMediaBuffer.h>
 #include <rockit/rt_metadata.h>
 #include <rockit/RTMediaMetaKeys.h>
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#define LOG_TAG "uac"
+#endif // LOG_TAG
 
 /*
  * pc datas -> rv1109
@@ -55,19 +61,6 @@
  * mic record->>xxxx process->usb playback
  */
 #define UAC_MIC_RECORD_USB_PLAY_CONFIG_FILE "/oem/usr/share/uac_app/mic_recode_usb_playback.json"
-
-/*
- * test: rv1109 datas -> pc
- * file read->>xxxx process->usb playback
- */
-#define UAC_FILE_READ_USB_PLAY_CONFIG_FILE "/oem/usr/share/uac_app/file_read_usb_playback.json"
-
-typedef struct _UACAudioConfig {
-    int samplerate;
-    float volume;
-    int mute;
-  //  int channels; // not support
-} UACAudioConfig;
 
 typedef struct _UACStream {
     pthread_mutex_t mutex;
@@ -89,12 +82,12 @@ UACControl *gUAControl = NULL;
 extern void uac_set_sample_rate(int type, int samplerate);
 extern void uac_set_volume(int type, int volume);
 extern void uac_set_mute(int type, int  mute);
-extern int  uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig config, UACConfigCmd cmd);
+extern int  uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig& config, UACConfigCmd cmd);
 
 int uac_control_create() {
     gUAControl = (UACControl*)calloc(1, sizeof(UACControl));
     if (!gUAControl) {
-        printf("%s:%d fail to malloc memory!\n", __FUNCTION__, __LINE__);
+        ALOGE("fail to malloc memory!\n");
         return -1;
     }
 
@@ -137,8 +130,7 @@ void uac_set_sample_rate(int type, int samplerate) {
     if ((type < 0) || (type >= UAC_STREAM_MAX))
         return;
 
-    printf("%s:%d, type = %d, samplerate = %d\n",
-        __FUNCTION__, __LINE__, type, samplerate);
+    ALOGD("type = %d, samplerate = %d\n", type, samplerate);
     pthread_mutex_lock(&gUAControl->stream[type].mutex);
     gUAControl->stream[type].config.samplerate = samplerate;
     /*
@@ -160,8 +152,7 @@ void uac_set_volume(int type, int volume) {
 
     pthread_mutex_lock(&gUAControl->stream[type].mutex);
     gUAControl->stream[type].config.volume = ((float)volume/100.0);
-    printf("%s:%d, type = %d, volume = %f\n",
-        __FUNCTION__, __LINE__, type, gUAControl->stream[type].config.volume);
+    ALOGD("type = %d, volume = %f\n", type, gUAControl->stream[type].config.volume);
     /*
      * if uac is already start, set volume to RTUACGraph
      */
@@ -179,8 +170,7 @@ void uac_set_mute(int type, int mute) {
     if ((type < 0) || (type >= UAC_STREAM_MAX))
         return;
 
-    printf("%s:%d, type = %d, mute = %d\n",
-        __FUNCTION__, __LINE__, type, mute);
+    ALOGD("type = %d, mute = %d\n", type, mute);
     pthread_mutex_lock(&gUAControl->stream[type].mutex);
     gUAControl->stream[type].config.mute = mute;
     /*
@@ -196,20 +186,19 @@ void uac_set_mute(int type, int mute) {
 /*
  * see json file
  */
-int uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig config, UACConfigCmd cmd) {
-    if (uac == RT_NULL)
+int uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig& config, UACConfigCmd cmd) {
+    if (uac == NULL)
         return -1;
 
     switch (cmd) {
       case UAC_SET_SAMPLE_RATE: {
-            graph_set_samplerate(uac, type, config.samplerate);
+            graph_set_samplerate(uac, type, config);
         } break;
       case UAC_SET_VOLUME: {
-            int mute = (config.mute)?1:0;
-            graph_set_volume(uac, type, mute, config.volume);
+			graph_set_volume(uac, type, config);
         } break;
       default:
-        printf("cannot find UACConfigCmd = %d.\n", cmd);
+        ALOGE("cannot find UACConfigCmd = %d.\n", cmd);
         break;
     }
 
@@ -221,7 +210,7 @@ int uac_start(int type) {
         return -1;
 
     if (type >= UAC_STREAM_MAX) {
-        printf("%s:%d error, type = %d\n", __FUNCTION__, __LINE__, type);
+        ALOGE("error, type = %d\n", type);
         return -1;
     }
 
@@ -232,10 +221,10 @@ int uac_start(int type) {
         name = (char*)"uac_record";
         config = (char*)UAC_USB_RECORD_SPK_PLAY_CONFIG_FILE;
     }
-    printf("%s:%d, config = %s\n", __FUNCTION__, __LINE__, config);
+    ALOGD("config = %s\n", config);
     RTUACGraph* uac = new RTUACGraph(name);
     if (uac == NULL) {
-        printf("%s:%d error, malloc fail\n", __FUNCTION__, __LINE__);
+        ALOGE("error, malloc fail\n");
         return -1;
     }
     // default configs will be readed in json file
@@ -260,10 +249,10 @@ void uac_stop(int type) {
 
     RTUACGraph* uac = NULL;
     if (type >= UAC_STREAM_MAX) {
-        printf("%s:%d error, type = %d\n", __FUNCTION__, __LINE__, type);
+        ALOGE("error type = %d\n",  type);
         return;
     }
-    printf("%s:%d, type = %d\n", __FUNCTION__, __LINE__, type);
+    ALOGD("type = %d\n", type);
     pthread_mutex_lock(&gUAControl->stream[type].mutex);
     uac = gUAControl->stream[type].uac;
     gUAControl->stream[type].uac = NULL;
@@ -274,5 +263,5 @@ void uac_stop(int type) {
         uac->waitUntilDone();
         delete uac;
     }
-    printf("%s:%d, type = %d out\n", __FUNCTION__, __LINE__, type);
+    ALOGD("type = %d out\n", type);
 }
