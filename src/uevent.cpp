@@ -114,13 +114,14 @@
 #define UAC_UEVENT_SET_SAMPLE_RATE  "USB_STATE=SET_SAMPLE_RATE"
 #define UAC_UEVENT_SET_VOLUME       "USB_STATE=SET_VOLUME"
 #define UAC_UEVENT_SET_MUTE         "USB_STATE=SET_MUTE"
-
+#define UAC_UEVENT_SET_AUDIO_CLK    "USB_STATE=SET_AUDIO_CLK"
 
 #define UAC_STREAM_DIRECT           "STREAM_DIRECTION="
 #define UAC_STREAM_STATE            "STREAM_STATE="
 #define UAC_SAMPLE_RATE             "SAMPLE_RATE="
 #define UAC_SET_VOLUME              "VOLUME="
 #define UAC_SET_MUTE                "MUTE="
+#define UAC_PPM                     "PPM="
 
 
 // remote device/pc->our device
@@ -139,6 +140,7 @@ enum UAC_UEVENT_KEY {
     UAC_KEY_AUDIO = 2,
     UAC_KEY_USB_STATE = 3,
     UAC_KEY_DIRECTION = 4,
+    UAC_KEY_PPM = 4,
     UAC_KEY_STREAM_STATE = 5,
     UAC_KEY_SAMPLE_RATE = UAC_KEY_STREAM_STATE,
     UAC_KEY_VOLUME      = UAC_KEY_STREAM_STATE,
@@ -262,6 +264,26 @@ void audio_set_mute(const struct _uevent *uevent) {
     }
 }
 
+/*
+ * strs[0] = ACTION=change
+ * strs[1] = DEVPATH=/devices/virtual/u_audio/UAC1_Gadget 0
+ * strs[2] = SUBSYSTEM=u_audio
+ * strs[3] = USB_STATE=SET_AUDIO_CLK
+ * strs[4] = PPM=-21
+ * strs[5] = SEQNUM=1573
+ */
+void audio_set_ppm(const struct _uevent *uevent) {
+    char *ppmStr = uevent->strs[UAC_KEY_PPM];
+
+    if (compare(ppmStr, UAC_PPM)) {
+        int  ppm = 0;
+        sscanf(ppmStr, "PPM=%d", &ppm);
+        uac_set_ppm(UAC_STREAM_RECORD, ppm);
+        uac_set_ppm(UAC_STREAM_PLAYBACK, ppm);
+    }
+}
+
+
 void audio_event(const struct _uevent *uevent) {
     char *event = uevent->strs[UAC_KEY_USB_STATE];
     char *direct = uevent->strs[UAC_KEY_DIRECTION];
@@ -277,7 +299,8 @@ void audio_event(const struct _uevent *uevent) {
     bool setSampleRate = compare(event, UAC_UEVENT_SET_SAMPLE_RATE);
     bool setVolume = compare(event, UAC_UEVENT_SET_VOLUME);
     bool setMute = compare(event, UAC_UEVENT_SET_MUTE);
-    if (!setInterface && !setSampleRate && !setVolume && !setMute) {
+    bool setClk = compare(event, UAC_UEVENT_SET_AUDIO_CLK);
+    if (!setInterface && !setSampleRate && !setVolume && !setMute && !setClk) {
         return;
     }
 
@@ -289,6 +312,8 @@ void audio_event(const struct _uevent *uevent) {
         audio_set_volume(uevent);
     } else if(setMute) {
         audio_set_mute(uevent);
+    }  else if(setClk) {
+        audio_set_ppm(uevent);
     }
 }
 

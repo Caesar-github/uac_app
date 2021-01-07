@@ -23,11 +23,13 @@
 #define OPT_VOLUME      "opt_volume"
 #define OPT_MUTE        "opt_mute"
 #define OPT_CONFIGS     "opt_configs"
+#define OPT_PPM         "opt_ppm"
 
 #define OPT_SET_ALSA_CAPTURE "set_capture_config"
 #define OPT_SET_RESAMPLE     "set_resample_config"
 #define OPT_SET_VOLUME       "set_volume_config"
 #define OPT_SET_CONFIG       "set_config"
+#define OPT_SET_PPM          "set_ppm"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -98,3 +100,24 @@ void graph_set_volume(RTUACGraph* uac, int type, UACAudioConfig& config) {
 
     uac->invoke(GRAPH_CMD_TASK_NODE_PRIVATE_CMD, &meta);
 }
+
+void graph_set_ppm(RTUACGraph* uac, int type, UACAudioConfig& config) {
+    if (uac == NULL)
+        return;
+
+    RtMetaData meta;
+    int ppm = config.ppm;
+    ALOGD("type = %d, ppm = %d\n", type, ppm);
+    if (type == UAC_STREAM_RECORD) {
+        meta.setInt32(kKeyTaskNodeId, 3);
+        meta.setInt32(OPT_PPM, ppm);
+        meta.setCString(kKeyPipeInvokeCmd, OPT_SET_PPM);
+    } else {
+        meta.setInt32(kKeyTaskNodeId, 0);
+        meta.setInt32(OPT_PPM, ppm);
+        meta.setCString(kKeyPipeInvokeCmd, OPT_SET_PPM);
+    }
+
+    uac->invoke(GRAPH_CMD_TASK_NODE_PRIVATE_CMD, &meta);
+}
+

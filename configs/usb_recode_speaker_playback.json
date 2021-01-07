@@ -78,6 +78,7 @@
                 "node_source_uri" : "default:CARD=rockchiprk809co"
             },
             "stream_opts_extra": {
+                "opt_audio_ppm"   : 1,
                 "opt_samaple_rate": 48000,
                 "opt_format"      : "audio:pcm_16",
                 "opt_channel"     : 2,

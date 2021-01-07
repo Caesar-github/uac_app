@@ -25,6 +25,7 @@ void uac_stop(int type);
 void uac_set_sample_rate(int type, int samplerate);
 void uac_set_volume(int type, int volume);
 void uac_set_mute(int type, int mute);
+void uac_set_ppm(int type, int ppm);
 
 int uac_control_create();
 void uac_control_destory();

@@ -75,6 +75,7 @@ typedef struct _UACControl {
 typedef enum UACConfigCmd {
     UAC_SET_SAMPLE_RATE = 1,
     UAC_SET_VOLUME,
+    UAC_SET_PPM,
 } UACConfigCmd;
 
 UACControl *gUAControl = NULL;
@@ -103,6 +104,7 @@ int uac_control_create() {
 
         gUAControl->stream[i].config.volume = 1.0;
         gUAControl->stream[i].config.mute = 0;
+        gUAControl->stream[i].config.ppm = 0;
     }
 
     return 0;
@@ -183,6 +185,27 @@ void uac_set_mute(int type, int mute) {
     pthread_mutex_unlock(&gUAControl->stream[type].mutex);
 }
 
+void uac_set_ppm(int type, int ppm) {
+    if (gUAControl == NULL)
+        return;
+
+    if ((type < 0) || (type >= UAC_STREAM_MAX))
+        return;
+
+    ALOGD("type = %d, ppm = %d\n", type, ppm);
+    pthread_mutex_lock(&gUAControl->stream[type].mutex);
+    gUAControl->stream[type].config.ppm = ppm;
+    /*
+     * if uac is already start, set mute to RTUACGraph
+     */
+    RTUACGraph* uac = gUAControl->stream[type].uac;
+    if (uac != NULL) {
+        uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_PPM);
+    }
+    pthread_mutex_unlock(&gUAControl->stream[type].mutex);
+}
+
+
 /*
  * see json file
  */
@@ -191,15 +214,18 @@ int uac_set_parameter(RTUACGraph* uac, int type, UACAudioConfig& config, UACConf
         return -1;
 
     switch (cmd) {
-      case UAC_SET_SAMPLE_RATE: {
+        case UAC_SET_SAMPLE_RATE: {
             graph_set_samplerate(uac, type, config);
         } break;
-      case UAC_SET_VOLUME: {
+        case UAC_SET_VOLUME: {
 			graph_set_volume(uac, type, config);
         } break;
-      default:
-        ALOGE("cannot find UACConfigCmd = %d.\n", cmd);
-        break;
+        case UAC_SET_PPM: {
+            graph_set_ppm(uac, type, config);
+        } break;
+        default: {
+            ALOGE("cannot find UACConfigCmd = %d.\n", cmd);
+        } break;
     }
 
     return 0;
@@ -233,6 +259,7 @@ int uac_start(int type) {
 
     uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_VOLUME);
     uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_SAMPLE_RATE);
+    uac_set_parameter(uac, type, gUAControl->stream[type].config, UAC_SET_PPM);
 
     uac->start();
 
