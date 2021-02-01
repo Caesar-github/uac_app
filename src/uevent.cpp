@@ -343,7 +343,7 @@ static void *event_monitor_thread(void *arg)
     struct msghdr msg;
     struct sockaddr_nl sa;
     struct _uevent event;
-    uint32_t flags = *(uint32_t *)arg;
+    //uint32_t flags = *(uint32_t *)arg;
 
     prctl(PR_SET_NAME, "event_monitor", 0, 0, 0);
 
