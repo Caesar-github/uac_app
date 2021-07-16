@@ -34,7 +34,14 @@ target_link_libraries(uac_app ${UAC_APP_DEPENDENT_LIBS})
 install(TARGETS rkuac DESTINATION lib)
 install(DIRECTORY ./uac DESTINATION include
         FILES_MATCHING PATTERN "*.h")
-install(DIRECTORY configs/ DESTINATION share/uac_app FILES_MATCHING PATTERN "*.json")
+
+option(ENABLE_DEMO_BOARD  "use demo board conf" OFF)
+if (${ENABLE_DEMO_BOARD})
+    install(DIRECTORY configs/demo/ DESTINATION share/uac_app FILES_MATCHING PATTERN "*.json")
+else()
+    install(DIRECTORY configs/ DESTINATION share/uac_app FILES_MATCHING PATTERN "*.json")
+endif()
+
 install(TARGETS uac_app DESTINATION bin)
 install(DIRECTORY . DESTINATION bin
         FILES_MATCHING PATTERN "*.sh"
