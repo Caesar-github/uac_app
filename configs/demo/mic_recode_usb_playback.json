@@ -5,7 +5,7 @@
                 "node_name"       : "alsa_capture"
             },
             "node_opts_extra": {
-                "node_source_uri" : "hw:0,0",
+                "node_source_uri" : "default:CARD=rockchipmulti72",
                 "node_buff_type"  : 0,
                 "node_buff_count" : 4,
                 "node_buff_size"  : 2048,

@@ -75,7 +75,7 @@
                 "node_name"       : "alsa_playback"
             },
             "node_opts_extra": {
-                "node_source_uri" : "hw:0,0"
+                "node_source_uri" : "default:CARD=rockchipmulti72"
             },
             "stream_opts_extra": {
                 "opt_audio_ppm"   : 1,
