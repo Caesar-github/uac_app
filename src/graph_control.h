@@ -18,12 +18,12 @@
 #define _ROCKIT_GRAPH_CONTROL_H_
 
 #include "uac_control.h"
-#include <rockit/rt_header.h>
-#include <rockit/rt_metadata.h>
-#include <rockit/RTUACGraph.h>
-#include <rockit/RTMediaBuffer.h>
-#include <rockit/rt_metadata.h>
-#include <rockit/RTMediaMetaKeys.h>
+#include <rt_header.h>
+#include <rt_metadata.h>
+#include <RTUACGraph.h>
+#include <RTMediaBuffer.h>
+#include <rt_metadata.h>
+#include <RTMediaMetaKeys.h>
 
 enum UACStreamType {
     // our device record datas from usb, pc/remote->our device
